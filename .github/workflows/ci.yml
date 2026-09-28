@@ -1,0 +1,71 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      # PlatformDemo integrates four sibling repos. GitHub Actions checks them
+      # out side by side and installs them editable, so the integration always
+      # runs against the live source of every portfolio system.
+      - name: Checkout PlatformDemo
+        uses: actions/checkout@v4
+
+      - name: Checkout AegisGate
+        uses: actions/checkout@v4
+        with:
+          repository: AkshayJohn03/AegisGate
+          path: AegisGate
+
+      - name: Checkout HVAC-Copilot
+        uses: actions/checkout@v4
+        with:
+          repository: AkshayJohn03/HVAC-Copilot
+          path: HVAC-Copilot
+
+      - name: Checkout ForensiQ
+        uses: actions/checkout@v4
+        with:
+          repository: AkshayJohn03/ForensiQ
+          path: ForensiQ
+
+      - name: Checkout VerdictAI
+        uses: actions/checkout@v4
+        with:
+          repository: AkshayJohn03/VerdictAI
+          path: VerdictAI
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install portfolio siblings + this repo (editable)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ./AegisGate -e ./HVAC-Copilot -e ./ForensiQ -e ./VerdictAI -e .
+
+      - name: Ruff (lint)
+        run: ruff check .
+
+      - name: Offline end-to-end tests
+        run: python -m pytest -q
+
+      - name: Run the demo artifact end-to-end
+        run: python demo/pipeline_demo.py
+
+      - name: Upload demo artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-output
+          path: |
+            output/e2e_summary.json
+            output/rca_report.md
+            output/spans.jsonl
+          if-no-files-found: ignore

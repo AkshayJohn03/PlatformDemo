@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Demo artifacts (regenerate with: python demo/pipeline_demo.py)
+output/spans.jsonl
+output/rca_report.md
+output/e2e_summary.json
+output/verdictai_snapshots.jsonl
+output/.index/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.env
