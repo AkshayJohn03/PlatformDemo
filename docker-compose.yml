@@ -1,0 +1,84 @@
+# PlatformDemo — HTTP-level production topology.
+#
+# The offline proof (demo/pipeline_demo.py + pytest) wires the four systems as
+# libraries inside one process. This file declares the same composition the way
+# it would run in production: separate containers talking over HTTP.
+#
+#   hvac-copilot  --LLM calls (OpenAI-compatible HTTP)-->  aegisgate:8080
+#   aegisgate     --span sink export (shared volume)---->  /data/spans.jsonl
+#   forensiq      --ingests spans.jsonl, renders RCA--->   /data/rca_report.md
+#   redis         --multi-instance stores for aegisgate
+#
+# Build contexts point at sibling checkouts; each service's image comes from
+# that repo's own Dockerfile (minimal python:3.11-slim, added by this repo).
+#
+#   docker compose up --build
+#   curl -s -X POST localhost:8300/query -H 'content-type: application/json' \
+#        -d '{"question": "What does fault code E04 indicate on the X200?"}'
+#
+# Honest limitation: the FastAPI app of AegisGate accepts a pluggable
+# span_sink, but does not yet ship an env-configured file/queue exporter, so in
+# this topology the spans.jsonl in the shared volume is produced by
+# `python demo/pipeline_demo.py` (same schema) rather than streamed live from
+# the container. Wiring a sink exporter into the gateway image is noted as
+# future work in the README.
+#
+# Sibling checkouts expected next to this repo:
+#   ../AegisGate  ../HVAC-Copilot  ../ForensiQ
+
+services:
+  aegisgate:
+    build:
+      context: ../AegisGate
+    image: platformdemo/aegisgate
+    container_name: platformdemo-aegisgate
+    ports:
+      - "8080:8080"
+    environment:
+      AEGISGATE_PORT: "8080"
+      AEGISGATE_LLM_MODE: "echo" # offline upstream; swap for a real provider via env
+      AEGISGATE_TENANT_TOKENS: "demo-tenant-token:hvac-copilot"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8080/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  hvac-copilot:
+    build:
+      context: ../HVAC-Copilot
+    image: platformdemo/hvac-copilot
+    container_name: platformdemo-hvac-copilot
+    ports:
+      - "8300:8300"
+    environment:
+      # The whole point of this topology: HVAC-Copilot's LLM provider IS the
+      # gateway. Bearer token doubles as the gateway tenant id.
+      HVAC_LLM_PROVIDER: "openai"
+      HVAC_LLM_BASE_URL: "http://aegisgate:8080/v1"
+      HVAC_LLM_API_KEY: "demo-tenant-token"
+      HVAC_LLM_MODEL: "gpt-4o-mini"
+      HVAC_INDEX_DIR: "/app/.index"
+      HVAC_API_KEYS: "field-tech-key"
+    depends_on:
+      aegisgate:
+        condition: service_healthy
+
+  forensiq:
+    build:
+      context: ../ForensiQ
+    image: platformdemo/forensiq
+    container_name: platformdemo-forensiq
+    volumes:
+      - ./output:/data # spans.jsonl in, rca_report.md out
+    depends_on:
+      - aegisgate
+
+  redis:
+    image: redis:7-alpine
+    container_name: platformdemo-redis
+    # Backs AegisGate's multi-instance rate-limit store path
+    # (aegisgate.redis_store.build_store degrades to in-memory without it).
+    # The default single-process compose run uses in-memory stores; redis is
+    # provisioned so the multi-replica deployment path is one env change away.
+    restart: unless-stopped
