@@ -1,0 +1,1 @@
+Here's a question that sounds harmless, but isn't. You've built eight A I systems. A gateway. A repair-manual assistant. A forensics engine. An evaluation harness. Each one passes its own tests. So — do they work together? Until you can prove it, eight great tools that never talked to each other are just a collection. That's the problem this repo exists to kill.

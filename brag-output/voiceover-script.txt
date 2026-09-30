@@ -1,0 +1,32 @@
+PlatformDemo whiteboard lecture — narration script (scene-delimited)
+Voice: Kokoro af_heart. Numbers written for TTS; exact figures appear on screen.
+
+=== SCENE 1 — eight tools, one question ===
+Here's a question that sounds harmless, but isn't. You've built eight A I systems. A gateway. A repair-manual assistant. A forensics engine. An evaluation harness. Each one passes its own tests. So — do they work together? Until you can prove it, eight great tools that never talked to each other are just a collection. That's the problem this repo exists to kill.
+
+=== SCENE 2 — the claim ===
+Platform Demo is the picture on the box, finally assembled. One command runs the whole platform on a laptop: no internet, no API keys, no Docker. It takes one real request and walks it through every system, end to end. Two definitions before we start. A vertical slice: one use case that touches every layer of a system, instead of testing layers in isolation. And an end-to-end test: a test that covers the whole path a real request would take, and checks the artifacts that come out the other side.
+
+=== SCENE 3 — the cast ===
+The cast is four systems. HVAC Copilot is the app — a question-answering service for technicians. Aegis Gate is the gateway — every A I call in the platform passes through it. Forensic Q is the detective — it reads the traces the platform writes and explains failures. And Verdict A I is the exam board — it decides whether a model snapshot is allowed to ship. This repo's actual code is the glue: adapters that wire the four together without changing any of them.
+
+=== SCENE 4 — one request ===
+Now follow one request. A technician asks: what does fault code E oh four indicate on the X two hundred? HVAC Copilot ingests the manual corpus — one hundred and eleven chunks — then retrieves the passages that matter and composes a cited answer. But watch closely. Every think step inside the copilot does not call a model directly. The L L M seam — the narrow interface where the copilot plugs in anything that can generate text — is wired to the gateway. Three healthy questions go through this way. And a fourth question is planted on purpose. We'll get to it.
+
+=== SCENE 5 — the gateway toll road ===
+Here is the gateway's toll road. Every A I call walks the same stages, in order. Rate limit — is this tenant over its request budget? Feature flags. Cache lookup — have we answered this exact prompt before? Autopilot — is the budget healthy, or should we downgrade? Routing — which model serves this call? Then the actual execution, wrapped in a circuit breaker and retry logic. Metering counts every token. And the cache store remembers the answer. A tenant is the caller's identity — all limits and billing attach to it. In this run, the meter bills tenant hvac copilot six thousand five hundred and seventy eight tokens — about a sixth of a cent. A real receipt, from real accounting.
+
+=== SCENE 6 — the flight recorder ===
+While all that happens, the gateway keeps a flight recorder. A span is one timed step: a name, a stage, a duration, a status, and attributes. A trace is the full journey of one request — every span sharing its id. The gateway exposes a span sink — a pluggable hook for wherever spans should go — and the demo plugs in a collector that writes them to a file. Four queries become four traces, and forty four spans. That file is the evidence. Now — who reads it?
+
+=== SCENE 7 — the planted failure ===
+Forensic Q does. It ingests the file — four traces, zero warnings — meaning the span contract between two independent repos actually holds. Then it classifies. Remember the fourth question? It asks about the X three hundred — a unit that isn't in the corpus. Retrieval returns zero hits. A failure taxonomy is a named catalogue of failure types, and this one gets a name: F R E T zero zero one — empty retrieval set. Stage health marks retrieve as a warning. Blame ranking weighs the stages. Drift detection correctly stays quiet — one day of data is below its baseline. The output is an R C A report — a root cause analysis with the evidence attached. One honest incident is what makes the forensics a proof, not a formality.
+
+=== SCENE 8 — the exam board ===
+Last stop: the exam board. A golden dataset is a fixed exam — eight questions with reference answers, quoted from the manual corpus. The golden runner scores a model snapshot against it. First exam: the healthy snapshot, against itself. Verdict: no change. Exit code zero. Now the same adapter, deterministically degraded — every other word dropped. The mean score falls nineteen point two percent. The gate compares the two snapshots with a confidence interval and an effect size guard, so it can't be tripped by luck. Verdict: regressed. Exit code one. Exit code semantics matter here: zero means pass, one means fail — and a C I pipeline acts on that number. A degraded model can never silently ship.
+
+=== SCENE 9 — why this is credible ===
+So why does this make the architecture claim credible? Because the proof is offline and deterministic. The only mocks sit at the transport boundary — a model that echoes its prompt, a judge that never touches a network. Everything above that boundary is real: rate limiting, caching, routing, metering, classification, the gate. The same run is eleven tests that execute on every push, in continuous integration, with no network. An architecture claim you can rerun in about two hundred milliseconds is a different kind of claim.
+
+=== SCENE 10 — recap ===
+Thirty-second recap. Eight tools; one proof. A technician's question goes in. The gateway meters and rate-limits every A I call — six and a half thousand tokens billed to one tenant. The flight recorder writes forty four spans. Forensic Q catches the one planted failure — the X three hundred that retrieved nothing. And Verdict A I's gate passes the healthy snapshot — exit zero — and fails the degraded one — exit one. The artifacts are on disk: the spans, the report, the summary. The collection became a platform — proven, offline. Glossary dot M D in the repo root has the full vocabulary. Now explain it to someone else.

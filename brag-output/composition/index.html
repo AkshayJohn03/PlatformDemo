@@ -1,0 +1,885 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1920, height=1080" />
+<title>PlatformDemo — whiteboard lecture</title>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+<style>
+  @font-face {
+    font-family: "Ink Free";
+    src: url("assets/fonts/Inkfree.ttf") format("truetype");
+    font-weight: normal; font-style: normal;
+  }
+  :root {
+    --board: #f6f4ec;
+    --ink: #1d2733;
+    --ink-dim: #525d69;
+    --ink-soft: #47525e;
+    --blue: #1e5aa8;
+    --green: #1a7f37;
+    --red: #b42318;
+    --amber: #8a5a00;
+    --amber-bg: #ffe9b8;
+    --card: #ffffff;
+    --line: #d8d4c6;
+  }
+  body { margin: 0; background: #e9e6da; }
+  #root {
+    position: relative; width: 100%; height: 100%; overflow: hidden;
+    background:
+      radial-gradient(1500px 950px at 40% 34%, rgba(255,255,255,0.55), rgba(0,0,0,0) 60%),
+      radial-gradient(1300px 850px at 88% 92%, rgba(120,116,96,0.10), rgba(0,0,0,0) 58%),
+      var(--board);
+    color: var(--ink);
+    font-family: system-ui, sans-serif;
+  }
+  .clip { position: absolute; inset: 0; }
+  .scene-inner { position: absolute; inset: 0; }
+  .board {
+    position: absolute; inset: 0; box-sizing: border-box;
+    display: grid; grid-template-columns: minmax(0, 1fr) 440px; gap: 34px;
+    padding: 52px 60px 88px;
+  }
+  .main { position: relative; min-width: 0; }
+  .rail { position: relative; display: flex; flex-direction: column; gap: 14px; justify-content: center; min-width: 0; }
+  h1 {
+    margin: 0 0 26px 0; font-family: "Ink Free", system-ui, sans-serif;
+    font-weight: 400; font-size: 52px; line-height: 1.08; color: var(--ink);
+  }
+  .u { display: block; width: 240px; height: 5px; margin-top: 12px; border-radius: 3px;
+       background: linear-gradient(90deg, var(--blue), rgba(30,90,168,0.12)); }
+  .u.green { background: linear-gradient(90deg, var(--green), rgba(26,127,55,0.12)); }
+  .u.red { background: linear-gradient(90deg, var(--red), rgba(180,35,24,0.12)); }
+  .scene-tag {
+    position: absolute; left: 60px; bottom: 30px;
+    font-family: "Ink Free", system-ui, sans-serif; font-size: 26px; color: var(--ink-dim);
+  }
+  .kcard {
+    background: var(--card); border: 1px solid var(--line);
+    border-left: 6px solid var(--blue); border-radius: 10px; padding: 14px 18px;
+    box-shadow: 0 1px 3px rgba(29,39,51,0.06);
+  }
+  .kcard.green { border-left-color: var(--green); }
+  .kcard.red { border-left-color: var(--red); }
+  .kcard.amber { border-left-color: var(--amber); }
+  .kcard .term { font-family: "Ink Free", system-ui, sans-serif; font-size: 28px; color: var(--ink); display: block; }
+  .kcard .def { display: block; margin-top: 4px; font-size: 20.5px; line-height: 1.34; color: var(--ink-soft); }
+  .panel {
+    background: var(--card); border: 1.5px solid var(--line); border-radius: 12px;
+    padding: 16px 20px; box-shadow: 0 1px 3px rgba(29,39,51,0.06);
+  }
+  .panel .cap { font-family: "Ink Free", system-ui, sans-serif; font-size: 25px; color: var(--ink); display: block; margin-bottom: 8px; }
+  .mono { font-family: ui-monospace, monospace; }
+  .chip { display: inline-block; border-radius: 999px; padding: 4px 16px; font-size: 22px; font-weight: 700; }
+  .chip.blue { background: var(--blue); color: #ffffff; }
+  .chip.green { background: var(--green); color: #ffffff; }
+  .chip.red { background: var(--red); color: #ffffff; }
+  .chip.amber { background: var(--amber-bg); color: #5c3c00; }
+  .chip.ghost { border: 1.5px solid var(--ink-dim); color: var(--ink-dim); }
+  .dim { color: var(--ink-dim); }
+  .blue { color: var(--blue); }
+  .green { color: var(--green); }
+  .red { color: var(--red); }
+  .amber { color: var(--amber); }
+  .absbox { position: absolute; box-sizing: border-box; }
+
+  /* scene 1 */
+  #s1-title { position: absolute; left: 40px; top: 40px; }
+  #s1-title .t { font-family: "Ink Free", system-ui, sans-serif; font-size: 58px; display: block; }
+  #s1-title .s { font-size: 25px; color: var(--ink-dim); display: block; margin-top: 4px; }
+  #s1-grid { position: absolute; left: 40px; top: 210px; width: 1240px;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; }
+  .toolbox { border: 3px dashed var(--ink-dim); border-radius: 12px; background: rgba(255,255,255,0.55);
+    padding: 16px 14px; text-align: center; }
+  .toolbox .nm { font-family: "Ink Free", system-ui, sans-serif; font-size: 27px; color: var(--ink); display: block; }
+  .toolbox .rl { font-size: 17.5px; color: var(--ink-dim); display: block; margin-top: 3px; }
+  .toolbox .tick { display: block; margin-top: 8px; font-size: 19px; font-weight: 700; color: var(--green); }
+  #s1-q { position: absolute; left: 40px; top: 660px; width: 1240px;
+    font-family: "Ink Free", system-ui, sans-serif; font-size: 46px; color: var(--blue); }
+  #s1-stamp { position: absolute; right: 30px; top: 745px; font-family: "Ink Free", system-ui, sans-serif;
+    font-size: 40px; color: var(--red); border: 3px solid var(--red); border-radius: 10px;
+    padding: 4px 22px; background: rgba(180,35,24,0.06); }
+
+  /* scene 2 */
+  #s2-frame { position: absolute; left: 30px; top: 200px; width: 620px; height: 330px;
+    border: 3px solid var(--ink); border-radius: 14px; }
+  #s2-frame .framelbl { position: absolute; bottom: -42px; left: 0; width: 100%; text-align: center;
+    font-family: "Ink Free", system-ui, sans-serif; font-size: 30px; color: var(--ink); }
+  .piece { position: absolute; width: 288px; height: 143px; border: 3px solid var(--blue); border-radius: 10px;
+    background: rgba(30,90,168,0.07); display: grid; place-items: center;
+    font-family: "Ink Free", system-ui, sans-serif; font-size: 30px; color: var(--ink); }
+  #s2-term { position: absolute; left: 710px; top: 210px; width: 590px; background: #20242b;
+    border-radius: 12px; padding: 20px 24px; }
+  #s2-term .tl { color: #8fd1a4; font-size: 22px; display: block; }
+  #s2-term .cmd { color: #f2f0e9; font-size: 30px; display: block; margin-top: 8px; min-height: 38px; }
+  #s2-term .cursor { display: inline-block; width: 15px; height: 32px; background: #f2f0e9;
+    vertical-align: -4px; }
+  #s2-nonet { position: absolute; left: 710px; top: 356px; width: 590px; font-size: 24px; color: var(--ink-soft); }
+  #s2-flow { position: absolute; left: 30px; top: 620px; width: 1270px; display: flex; align-items: center; gap: 16px;
+    font-size: 24px; color: var(--ink); }
+  #s2-flow .step { border: 2px solid var(--ink-dim); border-radius: 10px; padding: 10px 18px; background: var(--card); }
+  #s2-flow .arr { font-size: 28px; color: var(--ink-dim); }
+
+  /* scene 3 */
+  #s3-row { position: absolute; left: 0; top: 200px; width: 1300px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .castbox { border: 3px solid var(--blue); border-radius: 14px; padding: 18px 22px; background: var(--card);
+    box-shadow: 0 1px 3px rgba(29,39,51,0.06); }
+  .castbox .nm { font-family: "Ink Free", system-ui, sans-serif; font-size: 36px; color: var(--ink); display: block; }
+  .castbox .role { font-size: 22px; color: var(--ink-soft); display: block; margin-top: 6px; }
+  .castbox.gw { border-color: var(--green); }
+  .castbox.fq { border-color: var(--red); }
+  .castbox.va { border-color: var(--amber); }
+  #s3-glue { position: absolute; left: 0; top: 600px; width: 1300px; font-size: 25px; color: var(--ink-soft);
+    border-left: 4px solid var(--blue); padding-left: 16px; }
+  #s3-glue b { color: var(--ink); }
+
+  /* scene 4 */
+  #s4-q { position: absolute; left: 0; top: 178px; width: 640px; }
+  .qcard { background: var(--card); border: 2px solid var(--blue); border-radius: 14px; padding: 16px 22px; }
+  .qcard .q { font-size: 27px; line-height: 1.3; }
+  .qcard .who { display: block; margin-top: 8px; font-size: 19px; color: var(--ink-dim); }
+  #s4-corp { position: absolute; left: 0; top: 380px; width: 640px; }
+  .corpbox { border: 2px dashed var(--ink-dim); border-radius: 12px; padding: 12px 18px; background: var(--card); }
+  .corpbox .big { font-family: "Ink Free", system-ui, sans-serif; font-size: 28px; display: block; }
+  .corpbox .sub { font-size: 19px; color: var(--ink-dim); display: block; margin-top: 2px; }
+  #s4-ans { position: absolute; left: 0; top: 540px; width: 640px; }
+  .anscard { background: var(--card); border: 2px solid var(--green); border-radius: 12px; padding: 14px 18px; }
+  .anscard .atext { font-size: 22px; line-height: 1.42; }
+  .anscard .cite { color: var(--green); font-weight: 700; }
+  #s4-gw { position: absolute; left: 740px; top: 200px; width: 540px; }
+  .gwbox { border: 3px solid var(--green); border-radius: 14px; padding: 18px 24px; background: rgba(26,127,55,0.06); }
+  .gwbox .big { font-family: "Ink Free", system-ui, sans-serif; font-size: 36px; display: block; }
+  .gwbox .sub { font-size: 20px; color: var(--ink-soft); display: block; margin-top: 6px; }
+  #s4-cable { position: absolute; left: 640px; top: 300px; width: 100px; height: 6px; background: var(--blue); border-radius: 3px; }
+  #s4-no { position: absolute; left: 740px; top: 380px; width: 540px; font-size: 22px; color: var(--ink-dim); }
+  #s4-no b { color: var(--red); }
+  #s4-planted { position: absolute; left: 0; top: 730px; width: 1280px; display: flex; gap: 18px; align-items: center; }
+  #s4-planted .p3 { font-size: 23px; color: var(--ink-soft); }
+  #s4-planted .p4 { font-family: "Ink Free", system-ui, sans-serif; font-size: 30px; color: var(--red);
+    border: 3px solid var(--red); border-radius: 10px; padding: 6px 18px; background: rgba(180,35,24,0.06); }
+
+  /* scene 5 */
+  #s5-road { position: absolute; left: 0; top: 180px; width: 1310px;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 26px 18px; }
+  .stagechip { border: 3px solid var(--blue); border-radius: 12px; background: var(--card); padding: 12px 14px;
+    position: relative; }
+  .stagechip .snm { font-family: "Ink Free", system-ui, sans-serif; font-size: 27px; color: var(--ink); display: block; }
+  .stagechip .scap { font-size: 17px; color: var(--ink-dim); display: block; margin-top: 3px; }
+  .stagechip .num { position: absolute; top: -14px; left: -12px; width: 30px; height: 30px; border-radius: 50%;
+    background: var(--blue); color: #ffffff; font-size: 18px; font-weight: 700; display: grid; place-items: center; }
+  #s5-receipt { position: absolute; left: 0; top: 560px; width: 1310px;
+    border: 3px solid var(--green); border-radius: 14px; background: var(--card); padding: 20px 26px;
+    box-shadow: 0 1px 3px rgba(29,39,51,0.06); }
+  #s5-receipt .cap { font-family: "Ink Free", system-ui, sans-serif; font-size: 28px; display: block; }
+  #s5-receipt .line { display: flex; gap: 34px; align-items: baseline; margin-top: 10px; flex-wrap: wrap; }
+  #s5-receipt .tok { font-family: "Ink Free", system-ui, sans-serif; font-size: 62px; color: var(--green); line-height: 1; }
+  #s5-receipt .tk2 { font-size: 22px; color: var(--ink-dim); }
+  #s5-receipt .cost { font-family: "Ink Free", system-ui, sans-serif; font-size: 34px; color: var(--ink); }
+  #s5-note { position: absolute; left: 0; top: 770px; width: 1310px; font-size: 22px; color: var(--ink-soft); }
+
+  /* scene 6 */
+  #s6-span { position: absolute; left: 0; top: 185px; width: 620px; }
+  .spanbox { border: 3px solid var(--blue); border-radius: 14px; background: var(--card); padding: 16px 20px; }
+  .spanbox .fl { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1.5px dashed var(--line); font-size: 21px; }
+  .spanbox .fl:last-child { border-bottom: none; }
+  .spanbox .fk { color: var(--ink-dim); }
+  .spanbox .fv { color: var(--ink); font-weight: 600; }
+  #s6-file { position: absolute; left: 700px; top: 185px; width: 600px; }
+  .filecard { border: 3px solid var(--green); border-radius: 14px; background: var(--card); padding: 16px 20px; }
+  .filecard .fname { font-family: ui-monospace, monospace; font-size: 26px; font-weight: 700; color: var(--green); display: block; }
+  .tracegrp { border: 2px solid var(--line); border-radius: 10px; padding: 8px 12px; margin-top: 10px; font-size: 19px; color: var(--ink-soft); }
+  .tracegrp b { color: var(--ink); font-weight: 600; }
+  #s6-sink { position: absolute; left: 0; top: 700px; width: 1300px; font-size: 24px; color: var(--ink-soft);
+    border-left: 4px solid var(--blue); padding-left: 16px; }
+  #s6-count { position: absolute; left: 700px; top: 560px; width: 600px; display: flex; gap: 20px; }
+  #s6-count .cnt { flex: 1; border: 2px solid var(--line); border-radius: 10px; background: var(--card); padding: 10px 16px; }
+  #s6-count .n { font-family: "Ink Free", system-ui, sans-serif; font-size: 46px; color: var(--blue); display: block; line-height: 1; }
+  #s6-count .w { font-size: 19px; color: var(--ink-dim); display: block; margin-top: 2px; }
+
+  /* scene 7 */
+  #s7-q { position: absolute; left: 0; top: 178px; width: 620px; }
+  #s7-zh { position: absolute; left: 380px; top: 240px; font-family: "Ink Free", system-ui, sans-serif;
+    font-size: 38px; color: var(--red); border: 3px solid var(--red); border-radius: 10px; padding: 4px 18px;
+    background: rgba(180,35,24,0.06); }
+  #s7-ingest { position: absolute; left: 0; top: 330px; width: 620px; font-size: 22px; color: var(--ink-soft); }
+  #s7-ingest b { color: var(--ink); }
+  #s7-tax { position: absolute; left: 0; top: 410px; width: 620px; font-family: "Ink Free", system-ui, sans-serif;
+    font-size: 34px; color: var(--red); border: 4px solid var(--red); border-radius: 12px; padding: 10px 20px;
+    background: rgba(180,35,24,0.07); }
+  #s7-tax .tid { display: block; font-size: 44px; }
+  #s7-tax .tname { display: block; font-size: 26px; color: var(--ink); margin-top: 2px; }
+  #s7-health { position: absolute; left: 700px; top: 185px; width: 610px; }
+  .healthrow { display: flex; justify-content: space-between; align-items: center; padding: 9px 4px;
+    border-bottom: 1.5px dashed var(--line); font-size: 22px; }
+  .healthrow:last-child { border-bottom: none; }
+  #s7-rca { position: absolute; left: 700px; top: 420px; width: 610px; }
+  .rca { border: 3px solid var(--ink); border-radius: 14px; background: var(--card); padding: 14px 20px; }
+  .rca .rname { font-family: "Ink Free", system-ui, sans-serif; font-size: 28px; display: block; }
+  .rca .rsec { font-size: 19.5px; color: var(--ink-soft); display: block; margin-top: 6px; line-height: 1.45; }
+  #s7-note { position: absolute; left: 0; top: 640px; width: 620px; font-size: 21px; color: var(--ink-soft); }
+
+  /* scene 8 */
+  #s8-golden { position: absolute; left: 0; top: 172px; width: 1310px; }
+  #s8-exams { position: absolute; left: 0; top: 300px; width: 1310px; display: flex; flex-direction: column; gap: 20px; }
+  .exam { border: 3px solid var(--ink-dim); border-radius: 14px; background: var(--card); padding: 16px 24px;
+    display: flex; align-items: center; gap: 22px; }
+  .exam .lbl { font-family: "Ink Free", system-ui, sans-serif; font-size: 28px; color: var(--ink); min-width: 150px; }
+  .exam .pair { font-size: 22.5px; color: var(--ink-soft); flex: 1; }
+  .exam .pair b { color: var(--ink); }
+  .exam .verd { font-size: 22px; }
+  .exam .exit { font-family: "Ink Free", system-ui, sans-serif; font-size: 34px; border-radius: 10px; padding: 4px 20px; }
+  .exam.pass { border-color: var(--green); }
+  .exam.pass .exit { background: var(--green); color: #ffffff; }
+  .exam.fail { border-color: var(--red); }
+  .exam.fail .exit { background: var(--red); color: #ffffff; }
+  #s8-note { position: absolute; left: 0; top: 640px; width: 1310px; font-size: 22px; color: var(--ink-soft);
+    border-left: 4px solid var(--blue); padding-left: 16px; }
+  #s8-ship { position: absolute; left: 0; top: 730px; width: 1310px; font-family: "Ink Free", system-ui, sans-serif;
+    font-size: 36px; color: var(--ink); }
+
+  /* scene 9 */
+  #s9-arts { position: absolute; left: 0; top: 185px; width: 1310px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 22px; }
+  .art { border: 3px solid var(--green); border-radius: 14px; background: var(--card); padding: 16px 20px; }
+  .art .an { font-family: ui-monospace, monospace; font-size: 24px; font-weight: 700; color: var(--green); display: block; }
+  .art .aw { font-size: 19.5px; color: var(--ink-soft); display: block; margin-top: 8px; line-height: 1.4; }
+  #s9-ci { position: absolute; left: 0; top: 460px; width: 1310px; border: 3px solid var(--blue); border-radius: 14px;
+    background: var(--card); padding: 18px 26px; }
+  #s9-ci .cap { font-family: "Ink Free", system-ui, sans-serif; font-size: 28px; display: block; }
+  #s9-ci .loop { display: flex; align-items: center; gap: 14px; margin-top: 10px; font-size: 21px; color: var(--ink-soft); flex-wrap: wrap; }
+  #s9-ci .loop .st { border: 2px solid var(--line); border-radius: 9px; padding: 7px 14px; color: var(--ink); background: rgba(30,90,168,0.04); }
+  #s9-ci .loop .arr { color: var(--ink-dim); font-size: 24px; }
+  #s9-ms { position: absolute; left: 0; top: 700px; width: 1310px; font-family: "Ink Free", system-ui, sans-serif;
+    font-size: 34px; color: var(--blue); }
+
+  /* scene 10 */
+  #s10-list { position: absolute; left: 0; top: 175px; width: 1310px; }
+  .r10 { display: flex; gap: 16px; align-items: baseline; padding: 9px 0; border-bottom: 1.5px dashed var(--line); font-size: 25px; }
+  .r10 .dot { color: var(--blue); font-weight: 800; }
+  .r10 b { color: var(--ink); }
+  #s10-end { position: absolute; left: 0; top: 620px; width: 1310px; }
+  #s10-end .big { font-family: "Ink Free", system-ui, sans-serif; font-size: 50px; color: var(--ink); display: block; }
+  #s10-end .small { font-size: 26px; color: var(--blue); display: block; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="platform-lecture" data-start="0" data-width="1920" data-height="1080" data-duration="367.52">
+
+  <!-- ============ SCENE 1 : eight tools, one question (0 – 23.408) ============ -->
+  <section id="s1" class="clip" data-start="0" data-duration="23.408">
+    <div class="scene-inner" id="s1-inner">
+      <div class="board">
+        <div class="main">
+          <div id="s1-title">
+            <span class="t">PlatformDemo</span>
+            <span class="s">the integration proof — a whiteboard lecture</span>
+          </div>
+          <div id="s1-grid">
+            <div class="toolbox" id="tb1"><span class="nm">AegisGate</span><span class="rl">the gateway</span><span class="tick">106 tests ✓</span></div>
+            <div class="toolbox" id="tb2"><span class="nm">HVAC-Copilot</span><span class="rl">manual that answers</span><span class="tick">38 golden Qs ✓</span></div>
+            <div class="toolbox" id="tb3"><span class="nm">ForensiQ</span><span class="rl">flight recorder</span><span class="tick">planted fails ✓</span></div>
+            <div class="toolbox" id="tb4"><span class="nm">VerdictAI</span><span class="rl">exam grader</span><span class="tick">148 tests ✓</span></div>
+            <div class="toolbox" id="tb5"><span class="nm">SwarmResearch</span><span class="rl">team in a box</span><span class="tick">own suite ✓</span></div>
+            <div class="toolbox" id="tb6"><span class="nm">Model-Distillery</span><span class="rl">SFT pipeline</span><span class="tick">own suite ✓</span></div>
+            <div class="toolbox" id="tb7"><span class="nm">RedForge</span><span class="rl">red team</span><span class="tick">own suite ✓</span></div>
+            <div class="toolbox" id="tb8"><span class="nm">BrandMorph</span><span class="rl">deck re-skin</span><span class="tick">43 tests ✓</span></div>
+          </div>
+          <div id="s1-q">So — do they work together?</div>
+          <div id="s1-stamp">just a collection</div>
+        </div>
+        <div class="rail">
+          <div class="kcard red" id="kc-s1-problem">
+            <span class="term">the collection problem</span>
+            <span class="def">Eight systems, each passing its own tests — and no proof that any two of them compose.</span>
+          </div>
+          <div class="kcard" id="kc-s1-bar">
+            <span class="term">the bar to clear</span>
+            <span class="def">An architecture claim is only as good as the test that reruns it.</span>
+          </div>
+        </div>
+      </div>
+      <div class="scene-tag">01 · the collection problem</div>
+    </div>
+  </section>
+
+  <!-- ============ SCENE 2 : the claim (23.408 – 58.031) ============ -->
+  <section id="s2" class="clip" data-start="23.408" data-duration="34.623">
+    <div class="scene-inner" id="s2-inner">
+      <div class="board">
+        <div class="main">
+          <h1>The picture on the box, finally assembled<span class="u" id="s2-u"></span></h1>
+          <div id="s2-frame">
+            <div class="piece" id="pc1" style="left:12px; top:12px;">HVAC</div>
+            <div class="piece" id="pc2" style="left:316px; top:12px;">Gate</div>
+            <div class="piece" id="pc3" style="left:12px; top:170px;">ForensiQ</div>
+            <div class="piece" id="pc4" style="left:316px; top:170px;">VerdictAI</div>
+            <span class="framelbl">four standalone systems — one platform</span>
+          </div>
+          <div id="s2-term">
+            <span class="tl">laptop — offline</span>
+            <span class="cmd"><span id="s2-typed"></span><span class="cursor" id="s2-cursor"></span></span>
+          </div>
+          <div id="s2-nonet">no internet · no API keys · no Docker · ~200 ms per run</div>
+          <div id="s2-flow">
+            <div class="step" id="s2-st1">one real request</div><div class="arr" id="s2-ar1">→</div>
+            <div class="step" id="s2-st2">every system does its actual job</div><div class="arr" id="s2-ar2">→</div>
+            <div class="step" id="s2-st3">artifacts on disk</div>
+          </div>
+        </div>
+        <div class="rail">
+          <div class="kcard" id="kc-vertical">
+            <span class="term">vertical slice</span>
+            <span class="def">One use case that touches every layer of a system — instead of testing layers in isolation.</span>
+          </div>
+          <div class="kcard green" id="kc-e2e">
+            <span class="term">end-to-end test</span>
+            <span class="def">Covers the whole path a real request would take — and checks the artifacts that come out the other side.</span>
+          </div>
+        </div>
+      </div>
+      <div class="scene-tag">02 · the claim</div>
+    </div>
+  </section>
+
+  <!-- ============ SCENE 3 : the cast (58.031 – 87.028) ============ -->
+  <section id="s3" class="clip" data-start="58.031" data-duration="28.997">
+    <div class="scene-inner" id="s3-inner">
+      <div class="board">
+        <div class="main">
+          <h1>Four systems, one run<span class="u green" id="s3-u"></span></h1>
+          <div id="s3-row">
+            <div class="castbox" id="cb1"><span class="nm">HVAC-Copilot</span><span class="role">the app — a question-answering service for technicians, with cited answers</span></div>
+            <div class="castbox gw" id="cb2"><span class="nm">AegisGate</span><span class="role">the gateway — every AI call in the platform passes through it</span></div>
+            <div class="castbox fq" id="cb3"><span class="nm">ForensiQ</span><span class="role">the detective — reads the traces the platform writes, explains failures</span></div>
+            <div class="castbox va" id="cb4"><span class="nm">VerdictAI</span><span class="role">the exam board — decides whether a model snapshot may ship</span></div>
+          </div>
+          <div id="s3-glue">This repo's actual code is the <b>glue</b>: adapters that wire the four together — <b>without changing any of them</b>.</div>
+        </div>
+        <div class="rail">
+          <div class="kcard" id="kc-adapter">
+            <span class="term">adapter</span>
+            <span class="def">Glue that connects two systems through their real interfaces — nothing is bypassed or mocked away.</span>
+          </div>
+          <div class="kcard blue" id="kc-wiring">
+            <span class="term">library wiring vs HTTP compose</span>
+            <span class="def">The offline demo wires them as libraries in one process; docker-compose.yml declares the same composition over HTTP.</span>
+          </div>
+        </div>
+      </div>
+      <div class="scene-tag">03 · the cast</div>
+    </div>
+  </section>
+
+  <!-- ============ SCENE 4 : one request (87.028 – 125.449) ============ -->
+  <section id="s4" class="clip" data-start="87.028" data-duration="38.421">
+    <div class="scene-inner" id="s4-inner">
+      <div class="board">
+        <div class="main">
+          <h1>One request, end to end<span class="u" id="s4-u"></span></h1>
+          <div id="s4-q" class="qcard">
+            <div class="q">“What does fault code E04 indicate on the X200?”</div>
+            <span class="who">a real technician question</span>
+          </div>
+          <div id="s4-corp" class="corpbox">
+            <span class="big">manual corpus → 111 chunks</span>
+            <span class="sub">retrieval picks the passages that matter</span>
+          </div>
+          <div id="s4-ans" class="anscard">
+            <div class="atext">“E04 means the evaporator coil is iced — restore airflow first <span class="cite">[C1]</span>.”</div>
+          </div>
+          <div id="s4-gw" class="gwbox">
+            <span class="big">AegisGate</span>
+            <span class="sub">the copilot's "think" steps are brokered here — never a direct provider call</span>
+          </div>
+          <div id="s4-cable"></div>
+          <div id="s4-no">the provider socket stays <b>empty</b> — the gateway IS the LLM provider now</div>
+          <div id="s4-planted">
+            <span class="p3" id="s4-p3">3 healthy questions go through this way ✓</span>
+            <span class="p4" id="s4-p4">a 4th question is planted on purpose →</span>
+          </div>
+        </div>
+        <div class="rail">
+          <div class="kcard" id="kc-seam">
+            <span class="term">LLM seam</span>
+            <span class="def">The narrow interface where an app plugs in anything that can generate text — swap the client, keep the app.</span>
+          </div>
+          <div class="kcard" id="kc-hybrid">
+            <span class="term">hybrid retrieval</span>
+            <span class="def">Keyword + meaning search over the corpus — the demo records the real dense-cosine scores, not invented ones.</span>
+          </div>
+        </div>
+      </div>
+      <div class="scene-tag">04 · one request</div>
+    </div>
+  </section>
+
+  <!-- ============ SCENE 5 : the gateway toll road (125.449 – 169.224) ============ -->
+  <section id="s5" class="clip" data-start="125.449" data-duration="43.775">
+    <div class="scene-inner" id="s5-inner">
+      <div class="board">
+        <div class="main">
+          <h1>Every AI call walks the toll road<span class="u green" id="s5-u"></span></h1>
+          <div id="s5-road">
+            <div class="stagechip" id="st5-1"><span class="num">1</span><span class="snm">rate limit</span><span class="scap">over the request budget?</span></div>
+            <div class="stagechip" id="st5-2"><span class="num">2</span><span class="snm">flags</span><span class="scap">on for this caller?</span></div>
+            <div class="stagechip" id="st5-3"><span class="num">3</span><span class="snm">cache lookup</span><span class="scap">answered before?</span></div>
+            <div class="stagechip" id="st5-4"><span class="num">4</span><span class="snm">autopilot</span><span class="scap">budget healthy / downgrade?</span></div>
+            <div class="stagechip" id="st5-5"><span class="num">5</span><span class="snm">route</span><span class="scap">which model serves?</span></div>
+            <div class="stagechip" id="st5-6"><span class="num">6</span><span class="snm">execute</span><span class="scap">breaker · retry · fallback</span></div>
+            <div class="stagechip" id="st5-7"><span class="num">7</span><span class="snm">meter</span><span class="scap">tokens · cost</span></div>
+            <div class="stagechip" id="st5-8"><span class="num">8</span><span class="snm">cache store</span><span class="scap">remember the answer</span></div>
+          </div>
+          <div id="s5-receipt">
+            <span class="cap">meter receipt — tenant hvac-copilot</span>
+            <div class="line">
+              <span class="tok" id="s5-tok">0</span>
+              <span class="tk2">tokens billed<br>(3,547 in · 3,031 out)</span>
+              <span class="cost">$0.001567 — about a sixth of a cent</span>
+            </div>
+          </div>
+          <div id="s5-note">executed per query in the tests — the pipeline runs for real, it is not simulated</div>
+        </div>
+        <div class="rail">
+          <div class="kcard" id="kc-ratelimit">
+            <span class="term">rate limit</span>
+            <span class="def">A per-tenant request budget — one caller's storm cannot take the platform down.</span>
+          </div>
+          <div class="kcard" id="kc-breaker">
+            <span class="term">circuit breaker</span>
+            <span class="def">Stops calling a provider that keeps failing — inside execute, on every single call.</span>
+          </div>
+          <div class="kcard green" id="kc-metering">
+            <span class="term">metering</span>
+            <span class="def">The cost meter counts prompt tokens, completion tokens and dollars — per tenant, per model.</span>
+          </div>
+          <div class="kcard amber" id="kc-tenant">
+            <span class="term">tenant</span>
+            <span class="def">The caller's identity — all limits, budgets and billing attach to it.</span>
+          </div>
+        </div>
+      </div>
+      <div class="scene-tag">05 · the toll road</div>
+    </div>
+  </section>
+
+  <!-- ============ SCENE 6 : the flight recorder (169.224 – 196.963) ============ -->
+  <section id="s6" class="clip" data-start="169.224" data-duration="27.739">
+    <div class="scene-inner" id="s6-inner">
+      <div class="board">
+        <div class="main">
+          <h1>The gateway keeps a flight recorder<span class="u" id="s6-u"></span></h1>
+          <div id="s6-span" class="spanbox">
+            <span class="cap">one span, exploded</span>
+            <div class="fl"><span class="fk">name · stage</span><span class="fv">meter · meter</span></div>
+            <div class="fl"><span class="fk">duration_ms</span><span class="fv">measured, ≥ 0</span></div>
+            <div class="fl"><span class="fk">status</span><span class="fv">ok</span></div>
+            <div class="fl"><span class="fk">attrs</span><span class="fv">the measurements</span></div>
+            <div class="fl"><span class="fk">parent_id</span><span class="fv">the trace id</span></div>
+          </div>
+          <div id="s6-count">
+            <div class="cnt" id="s6-c1"><span class="n" id="s6-n1">0</span><span class="w">traces — one per query</span></div>
+            <div class="cnt" id="s6-c2"><span class="n" id="s6-n2">0</span><span class="w">spans recorded</span></div>
+          </div>
+          <div id="s6-file" class="filecard">
+            <span class="fname">output/spans.jsonl</span>
+            <div class="tracegrp" id="tg1"><b>trace 581f…</b> — 11 spans: gateway ops + retrieve + compose</div>
+            <div class="tracegrp" id="tg2"><b>trace 688e…</b> — 11 spans — one per gateway query</div>
+            <div class="tracegrp" id="tg3"><b>trace 864f…</b> — 11 spans — grouped by trace id</div>
+            <div class="tracegrp" id="tg4"><b>trace 53a5…</b> — 11 spans — the planted one lives here</div>
+          </div>
+          <div id="s6-sink">The <b style="color:#1e5aa8;">span sink</b> is the gateway's pluggable export hook — the demo plugs in a collector and writes the file. Bridge spans join HVAC's own steps to the same trace ids.</div>
+        </div>
+        <div class="rail">
+          <div class="kcard" id="kc-span">
+            <span class="term">span</span>
+            <span class="def">One timed step: a name, a stage, a duration, a status, and measured attributes.</span>
+          </div>
+          <div class="kcard" id="kc-trace">
+            <span class="term">trace</span>
+            <span class="def">The full journey of one request — every span sharing its id.</span>
+          </div>
+          <div class="kcard green" id="kc-sink">
+            <span class="term">span sink</span>
+            <span class="def">A pluggable hook for wherever spans should go — collector, file, queue — injected at construction.</span>
+          </div>
+        </div>
+      </div>
+      <div class="scene-tag">06 · the flight recorder</div>
+    </div>
+  </section>
+
+  <!-- ============ SCENE 7 : the planted failure (196.963 – 244.344) ============ -->
+  <section id="s7" class="clip" data-start="196.963" data-duration="47.381">
+    <div class="scene-inner" id="s7-inner">
+      <div class="board">
+        <div class="main">
+          <h1>ForensiQ reads the evidence<span class="u red" id="s7-u"></span></h1>
+          <div id="s7-q" class="qcard">
+            <div class="q">“What is the rated electrical supply for the AriaTherm X300?”</div>
+            <span class="who">the planted probe — the X300 is not in the corpus</span>
+          </div>
+          <div id="s7-zh">ZERO HITS</div>
+          <div id="s7-ingest">ingest: <b>4 traces, 0 warnings</b> — the span contract between two independent repos holds</div>
+          <div id="s7-tax">
+            <span class="tid">F-RET-001</span>
+            <span class="tname">empty retrieval set — named, blamed, explained</span>
+          </div>
+          <div id="s7-note">drift detection correctly stays quiet — one day of data is below its baseline</div>
+          <div id="s7-health" class="panel">
+            <span class="cap">stage health</span>
+            <div class="healthrow"><span>retrieve</span><span class="chip amber">WARN · hit rate 0.75</span></div>
+            <div class="healthrow"><span>generate</span><span class="chip green">OK</span></div>
+            <div class="healthrow"><span>tool</span><span class="chip green">OK</span></div>
+          </div>
+          <div id="s7-rca" class="rca">
+            <span class="rname">output/rca_report.md</span>
+            <span class="rsec">Executive summary · Failure mix · Top root causes · Stage health · Mapped fixes — the repair playbook, with the evidence attached</span>
+          </div>
+        </div>
+        <div class="rail">
+          <div class="kcard" id="kc-taxonomy">
+            <span class="term">failure taxonomy</span>
+            <span class="def">A named catalogue of failure types — a failure only becomes fixable once it has a name.</span>
+          </div>
+          <div class="kcard amber" id="kc-health">
+            <span class="term">stage health</span>
+            <span class="def">Per-stage scorecards: error rate, hit rate, groundedness, latency — where the trouble is, not just that it exists.</span>
+          </div>
+          <div class="kcard red" id="kc-probe">
+            <span class="term">incident probe</span>
+            <span class="def">The deliberately failing query planted in the run — a clean cohort would prove nothing about forensics.</span>
+          </div>
+          <div class="kcard" id="kc-rca">
+            <span class="term">RCA report</span>
+            <span class="def">Root-cause analysis: the platform's answer to "why did this request go wrong?"</span>
+          </div>
+        </div>
+      </div>
+      <div class="scene-tag">07 · the planted failure</div>
+    </div>
+  </section>
+
+  <!-- ============ SCENE 8 : the exam board (244.344 – 290.295) ============ -->
+  <section id="s8" class="clip" data-start="244.344" data-duration="45.951">
+    <div class="scene-inner" id="s8-inner">
+      <div class="board">
+        <div class="main">
+          <h1>The release gate<span class="u green" id="s8-u"></span></h1>
+          <div id="s8-golden" class="panel">
+            <span class="cap">golden dataset platformdemo-golden-1 — 8 items, references quoted from the corpus</span>
+          </div>
+          <div id="s8-exams">
+            <div class="exam pass" id="ex1">
+              <span class="lbl">exam 1</span>
+              <span class="pair">baseline <b>v1 (healthy)</b> vs candidate <b>v1</b> — mean 3.5312 → verdict <b>no_change</b></span>
+              <span class="exit" id="ex1-chip">exit 0</span>
+            </div>
+            <div class="exam fail" id="ex2">
+              <span class="lbl">exam 2</span>
+              <span class="pair">baseline <b>v1</b> vs candidate <b>v2 (degraded: every other word dropped)</b> — mean 2.8519 · <b class="red">−19.2%</b> → verdict <b>regressed</b></span>
+              <span class="exit" id="ex2-chip">exit 1</span>
+            </div>
+          </div>
+          <div id="s8-note">the gate needs BOTH a statistically significant drop (paired bootstrap CI) and a large effect size (Cliff's delta) — it cannot be tripped by luck</div>
+          <div id="s8-ship">A degraded model can never silently ship.</div>
+        </div>
+        <div class="rail">
+          <div class="kcard" id="kc-golden">
+            <span class="term">golden dataset</span>
+            <span class="def">A fixed, versioned exam — questions with reference answers — that every snapshot must sit.</span>
+          </div>
+          <div class="kcard" id="kc-gate">
+            <span class="term">regression gate</span>
+            <span class="def">Compares baseline vs candidate snapshots and decides: ship it, or block the release.</span>
+          </div>
+          <div class="kcard green" id="kc-exitcode">
+            <span class="term">exit code</span>
+            <span class="def">0 means pass, 1 means fail — a CI pipeline acts on that number automatically.</span>
+          </div>
+        </div>
+      </div>
+      <div class="scene-tag">08 · the exam board</div>
+    </div>
+  </section>
+
+  <!-- ============ SCENE 9 : why this is credible (290.295 – 324.833) ============ -->
+  <section id="s9" class="clip" data-start="290.295" data-duration="34.538">
+    <div class="scene-inner" id="s9-inner">
+      <div class="board">
+        <div class="main">
+          <h1>Why an offline proof is credible<span class="u" id="s9-u"></span></h1>
+          <div id="s9-arts">
+            <div class="art" id="art1"><span class="an">spans.jsonl</span><span class="aw">the flight recorder — 44 spans, every step timed and measured</span></div>
+            <div class="art" id="art2"><span class="an">rca_report.md</span><span class="aw">the forensics — the planted failure named, blamed, and given a fix</span></div>
+            <div class="art" id="art3"><span class="an">e2e_summary.json</span><span class="aw">machine-checkable — every stage ok:true, readable by CI</span></div>
+          </div>
+          <div id="s9-ci">
+            <span class="cap">the standing guarantee — continuous integration</span>
+            <div class="loop">
+              <span class="st" id="ci1">push</span><span class="arr" id="ci2">→</span>
+              <span class="st" id="ci3">install 4 sibling repos</span><span class="arr" id="ci4">→</span>
+              <span class="st" id="ci5"><b id="s9-tests">11</b> offline tests + the demo</span><span class="arr" id="ci6">→</span>
+              <span class="st" id="ci7">artifacts uploaded</span>
+            </div>
+          </div>
+          <div id="s9-ms">An architecture claim you can rerun on every push is a different kind of claim.</div>
+        </div>
+        <div class="rail">
+          <div class="kcard" id="kc-determinism">
+            <span class="term">offline determinism</span>
+            <span class="def">No network, no keys, same verdict every run — that is what lets CI rerun the proof.</span>
+          </div>
+          <div class="kcard" id="kc-mocktransport">
+            <span class="term">mock transport</span>
+            <span class="def">Mocks sit only at the transport boundary; everything above — limits, caching, metering, classification, the gate — runs for real.</span>
+          </div>
+        </div>
+      </div>
+      <div class="scene-tag">09 · why it's credible</div>
+    </div>
+  </section>
+
+  <!-- ============ SCENE 10 : recap (324.833 – 367.515) ============ -->
+  <section id="s10" class="clip" data-start="324.833" data-duration="42.682">
+    <div class="scene-inner" id="s10-inner">
+      <div class="board">
+        <div class="main">
+          <h1>The 30-second recap<span class="u green" id="s10-u"></span></h1>
+          <div id="s10-list">
+            <div class="r10" id="r10a"><span class="dot">1</span><span>One technician question goes in — the app composes a <b>cited answer</b>.</span></div>
+            <div class="r10" id="r10b"><span class="dot">2</span><span>Every AI call is metered and rate-limited by the gateway — <b>6,578 tokens</b> billed to one tenant.</span></div>
+            <div class="r10" id="r10c"><span class="dot">3</span><span>The flight recorder writes <b>44 spans</b> across <b>4 traces</b>.</span></div>
+            <div class="r10" id="r10d"><span class="dot">4</span><span>ForensiQ catches the planted failure — <b>F-RET-001</b>, zero hits.</span></div>
+            <div class="r10" id="r10e"><span class="dot">5</span><span>The gate passes v1 — <b class="green">exit 0</b> — and fails degraded v2 — <b class="red">exit 1</b>.</span></div>
+            <div class="r10" id="r10f"><span class="dot">6</span><span>Artifacts on disk; <b>11 tests</b> rerun the proof on every push.</span></div>
+          </div>
+          <div id="s10-end">
+            <span class="big">The collection became a platform — proven, offline.</span>
+            <span class="small">python demo/pipeline_demo.py — one command, any laptop.</span>
+          </div>
+        </div>
+        <div class="rail">
+          <div class="kcard green" id="kc-learn">
+            <span class="term">now explain it to someone else</span>
+            <span class="def">That was the success metric. GLOSSARY.md in the repo root has all 54 terms.</span>
+          </div>
+        </div>
+      </div>
+      <div class="scene-tag">10 · recap</div>
+    </div>
+  </section>
+
+  <!-- ================= AUDIO ================= -->
+  <!-- music bed: steady & clean, looped back-to-back, quiet under narration -->
+  <audio id="music-1" data-start="0" data-duration="117.384" data-track-index="10" data-volume="0.13" src="assets/music/happy-beats-business-moves-vol-12-by-ende-dot-app.mp3"></audio>
+  <audio id="music-2" data-start="117.384" data-duration="117.384" data-track-index="10" data-volume="0.13" src="assets/music/happy-beats-business-moves-vol-12-by-ende-dot-app.mp3"></audio>
+  <audio id="music-3" data-start="234.768" data-duration="117.384" data-track-index="10" data-volume="0.13" src="assets/music/happy-beats-business-moves-vol-12-by-ende-dot-app.mp3"></audio>
+  <audio id="music-4" data-start="352.152" data-duration="15.363" data-track-index="10" data-volume="0.13" src="assets/music/happy-beats-business-moves-vol-12-by-ende-dot-app.mp3"></audio>
+
+  <!-- narration: one WAV per scene, scene lengths derived from these -->
+  <audio id="vo-1" data-start="0.350" data-duration="22.208" data-track-index="3" data-volume="1" src="assets/voiceover/voice_01.wav"></audio>
+  <audio id="vo-2" data-start="23.758" data-duration="33.423" data-track-index="4" data-volume="1" src="assets/voiceover/voice_02.wav"></audio>
+  <audio id="vo-3" data-start="58.381" data-duration="27.797" data-track-index="5" data-volume="1" src="assets/voiceover/voice_03.wav"></audio>
+  <audio id="vo-4" data-start="87.378" data-duration="37.221" data-track-index="6" data-volume="1" src="assets/voiceover/voice_04.wav"></audio>
+  <audio id="vo-5" data-start="125.799" data-duration="42.575" data-track-index="7" data-volume="1" src="assets/voiceover/voice_05.wav"></audio>
+  <audio id="vo-6" data-start="169.574" data-duration="26.539" data-track-index="8" data-volume="1" src="assets/voiceover/voice_06.wav"></audio>
+  <audio id="vo-7" data-start="197.313" data-duration="46.181" data-track-index="9" data-volume="1" src="assets/voiceover/voice_07.wav"></audio>
+  <audio id="vo-8" data-start="244.694" data-duration="44.751" data-track-index="11" data-volume="1" src="assets/voiceover/voice_08.wav"></audio>
+  <audio id="vo-9" data-start="290.645" data-duration="33.338" data-track-index="12" data-volume="1" src="assets/voiceover/voice_09.wav"></audio>
+  <audio id="vo-10" data-start="325.183" data-duration="41.082" data-track-index="13" data-volume="1" src="assets/voiceover/voice_10.wav"></audio>
+
+  <!-- sparse SFX -->
+  <audio id="sfx-1" data-start="3.300" data-duration="0.12" data-track-index="14" data-volume="0.40" src="assets/sfx/interface/drop_001.ogg"></audio>
+  <audio id="sfx-2" data-start="28.700" data-duration="0.12" data-track-index="15" data-volume="0.45" src="assets/sfx/interface/drop_001.ogg"></audio>
+  <audio id="sfx-3" data-start="130.600" data-duration="0.12" data-track-index="16" data-volume="0.45" src="assets/sfx/interface/drop_001.ogg"></audio>
+  <audio id="sfx-4" data-start="220.750" data-duration="0.5" data-track-index="17" data-volume="0.50" src="assets/sfx/interface/error_005.ogg"></audio>
+  <audio id="sfx-5" data-start="262.000" data-duration="0.12" data-track-index="18" data-volume="0.40" src="assets/sfx/interface/bong_001.ogg"></audio>
+  <audio id="sfx-6" data-start="279.700" data-duration="0.12" data-track-index="19" data-volume="0.50" src="assets/sfx/impact/impactSoft_medium_000.ogg"></audio>
+  <audio id="sfx-7" data-start="354.000" data-duration="0.12" data-track-index="20" data-volume="0.40" src="assets/sfx/interface/drop_001.ogg"></audio>
+</div>
+
+<script>
+  // Scene timing constants (derived from measured voiceover WAV durations)
+  const S1 = 0, S2 = 23.408, S3 = 58.031, S4 = 87.028, S5 = 125.449,
+        S6 = 169.224, S7 = 196.963, S8 = 244.344, S9 = 290.295, S10 = 324.833;
+  const END = 367.52;
+
+  const tl = gsap.timeline({ paused: true, defaults: { ease: "power2.out" } });
+
+  // helpers (all on inner wrappers — never on .clip elements)
+  const IN = (sel, at, dy = 18, dur = 0.55) =>
+    tl.fromTo(sel, { opacity: 0, y: dy }, { opacity: 1, y: 0, duration: dur }, at);
+  const SC = (sel, at, dur = 0.6) =>
+    tl.fromTo(sel, { scaleX: 0, transformOrigin: "left center" }, { scaleX: 1, duration: dur }, at);
+  const OUT = (sel, at) => tl.to(sel, { opacity: 0, duration: 0.45, ease: "power1.in" }, at);
+  const countTo = (sel, target, at, dur, fmt) => {
+    const obj = { v: 0 };
+    tl.fromTo(obj, { v: 0 }, { v: target, duration: dur, ease: "power1.out",
+      onUpdate: () => { document.querySelector(sel).textContent = fmt(obj.v); } }, at);
+  };
+
+  // ---- Scene 1 (0 – 23.408) ---------------------------------------------
+  IN("#s1-title", 0.15, 24, 0.7);
+  ["#tb1", "#tb2", "#tb3", "#tb4", "#tb5", "#tb6", "#tb7", "#tb8"].forEach((sel, i) =>
+    IN(sel, 3.2 + i * 0.75, 14, 0.4)
+  );
+  IN("#s1-q", 12.4, 16, 0.55);
+  tl.fromTo("#s1-stamp", { opacity: 0, y: 10, rotation: -3 },
+    { opacity: 1, y: 0, rotation: -3, duration: 0.45 }, 14.9);
+  IN("#kc-s1-problem", 15.3);
+  IN("#kc-s1-bar", 19.6);
+  OUT("#s1-inner", S2 - 0.55);
+
+  // ---- Scene 2 (23.408 – 58.031) -----------------------------------------
+  IN("#s2-inner > .board > .main > h1", S2 + 0.15, 22, 0.6);
+  SC("#s2-u", S2 + 0.6);
+  // pieces slide into the frame from outside
+  tl.fromTo("#pc1", { x: -120, y: -90, opacity: 0 }, { x: 0, y: 0, opacity: 1, duration: 0.6 }, S2 + 1.2);
+  tl.fromTo("#pc2", { x: 120, y: -90, opacity: 0 }, { x: 0, y: 0, opacity: 1, duration: 0.6 }, S2 + 1.9);
+  tl.fromTo("#pc3", { x: -120, y: 90, opacity: 0 }, { x: 0, y: 0, opacity: 1, duration: 0.6 }, S2 + 2.6);
+  tl.fromTo("#pc4", { x: 120, y: 90, opacity: 0 }, { x: 0, y: 0, opacity: 1, duration: 0.6 }, S2 + 3.3);
+  IN("#s2-frame", S2 + 0.9, 10, 0.4);
+  IN("#s2-term", S2 + 5.2, 14, 0.5);
+  // type the command on
+  const CMD = "python demo/pipeline_demo.py";
+  const cmdObj = { n: 0 };
+  tl.fromTo(cmdObj, { n: 0 }, { n: CMD.length, duration: 1.2, ease: "none",
+    onUpdate: () => { document.getElementById("s2-typed").textContent = CMD.slice(0, Math.round(cmdObj.n)); } }, S2 + 5.8);
+  tl.to("#s2-cursor", { opacity: 0.25, duration: 0.35, repeat: 5, yoyo: true }, S2 + 7.2);
+  IN("#s2-nonet", S2 + 9.4, 12, 0.45);
+  IN("#s2-st1", S2 + 11.6, 12, 0.4); IN("#s2-ar1", S2 + 12.0, 8, 0.3);
+  IN("#s2-st2", S2 + 12.4, 12, 0.4); IN("#s2-ar2", S2 + 12.8, 8, 0.3);
+  IN("#s2-st3", S2 + 13.2, 12, 0.4);
+  IN("#kc-vertical", S2 + 19.2);
+  IN("#kc-e2e", S2 + 25.7);
+  OUT("#s2-inner", S3 - 0.55);
+
+  // ---- Scene 3 (58.031 – 87.028) -----------------------------------------
+  IN("#s3-inner > .board > .main > h1", S3 + 0.15, 22, 0.6);
+  SC("#s3-u", S3 + 0.6);
+  IN("#cb1", S3 + 3.0, 16, 0.45);
+  IN("#cb2", S3 + 7.2, 16, 0.45);
+  IN("#cb3", S3 + 10.7, 16, 0.45);
+  IN("#cb4", S3 + 14.7, 16, 0.45);
+  IN("#s3-glue", S3 + 18.9, 12, 0.5);
+  IN("#kc-adapter", S3 + 19.4);
+  IN("#kc-wiring", S3 + 23.5);
+  OUT("#s3-inner", S4 - 0.55);
+
+  // ---- Scene 4 (87.028 – 125.449) -----------------------------------------
+  IN("#s4-inner > .board > .main > h1", S4 + 0.15, 22, 0.6);
+  SC("#s4-u", S4 + 0.6);
+  IN("#s4-q", S4 + 2.7);
+  IN("#s4-corp", S4 + 8.2, 14, 0.45);
+  IN("#kc-hybrid", S4 + 12.6);
+  IN("#s4-ans", S4 + 13.4, 14, 0.45);
+  IN("#s4-gw", S4 + 19.2, 14, 0.5);
+  tl.fromTo("#s4-cable", { scaleX: 0, transformOrigin: "left center" }, { scaleX: 1, duration: 0.5 }, S4 + 20.4);
+  IN("#s4-no", S4 + 21.4, 10, 0.45);
+  IN("#kc-seam", S4 + 23.7);
+  IN("#s4-p3", S4 + 30.0, 10, 0.4);
+  tl.fromTo("#s4-p4", { opacity: 0, x: 14, rotation: -1.5 },
+    { opacity: 1, x: 0, rotation: -1.5, duration: 0.5 }, S4 + 32.7);
+  OUT("#s4-inner", S5 - 0.55);
+
+  // ---- Scene 5 (125.449 – 169.224) -----------------------------------------
+  IN("#s5-inner > .board > .main > h1", S5 + 0.15, 22, 0.6);
+  SC("#s5-u", S5 + 0.6);
+  // stage chips land as the narration names them
+  IN("#st5-1", S5 + 5.0, 12, 0.4);
+  IN("#kc-ratelimit", S5 + 5.4);
+  IN("#st5-2", S5 + 8.7, 12, 0.4);
+  IN("#st5-3", S5 + 10.2, 12, 0.4);
+  IN("#st5-4", S5 + 14.2, 12, 0.4);
+  IN("#st5-5", S5 + 18.2, 12, 0.4);
+  IN("#st5-6", S5 + 21.7, 12, 0.4);
+  IN("#kc-breaker", S5 + 22.1);
+  IN("#st5-7", S5 + 26.2, 12, 0.4);
+  IN("#kc-metering", S5 + 26.6);
+  IN("#st5-8", S5 + 28.7, 12, 0.4);
+  IN("#kc-tenant", S5 + 31.9);
+  IN("#s5-receipt", S5 + 36.5, 14, 0.5);
+  countTo("#s5-tok", 6578, S5 + 36.8, 1.7, (v) => Math.round(v).toLocaleString("en-US"));
+  IN("#s5-note", S5 + 41.2, 10, 0.4);
+  OUT("#s5-inner", S6 - 0.55);
+
+  // ---- Scene 6 (169.224 – 196.963) -----------------------------------------
+  IN("#s6-inner > .board > .main > h1", S6 + 0.15, 22, 0.6);
+  SC("#s6-u", S6 + 0.6);
+  IN("#s6-span", S6 + 4.2, 14, 0.5);
+  IN("#kc-span", S6 + 4.6);
+  IN("#kc-trace", S6 + 9.9);
+  IN("#kc-sink", S6 + 14.7);
+  IN("#s6-file", S6 + 15.4, 14, 0.5);
+  ["#tg1", "#tg2", "#tg3", "#tg4"].forEach((sel, i) => IN(sel, S6 + 16.2 + i * 0.8, 10, 0.4));
+  IN("#s6-count", S6 + 22.2, 12, 0.45);
+  countTo("#s6-n1", 4, S6 + 22.5, 1.0, (v) => String(Math.round(v)));
+  countTo("#s6-n2", 44, S6 + 22.5, 1.6, (v) => String(Math.round(v)));
+  IN("#s6-sink", S6 + 24.7, 10, 0.45);
+  OUT("#s6-inner", S7 - 0.55);
+
+  // ---- Scene 7 (196.963 – 244.344) -----------------------------------------
+  IN("#s7-inner > .board > .main > h1", S7 + 0.15, 22, 0.6);
+  SC("#s7-u", S7 + 0.6);
+  IN("#s7-q", S7 + 10.5, 14, 0.5);
+  tl.fromTo("#s7-zh", { opacity: 0, scale: 1.6 }, { opacity: 1, scale: 1, duration: 0.4, ease: "power3.in" }, S7 + 16.8);
+  IN("#s7-ingest", S7 + 2.2, 12, 0.45);
+  tl.fromTo("#s7-tax", { opacity: 0, rotation: -4, y: 12 },
+    { opacity: 1, rotation: -2, y: 0, duration: 0.5 }, S7 + 23.7);
+  IN("#kc-taxonomy", S7 + 19.5);
+  IN("#s7-health", S7 + 27.7, 14, 0.5);
+  IN("#kc-health", S7 + 28.1);
+  IN("#s7-note", S7 + 33.7, 10, 0.45);
+  IN("#s7-rca", S7 + 38.2, 14, 0.5);
+  IN("#kc-rca", S7 + 38.6);
+  IN("#kc-probe", S7 + 43.5);
+  OUT("#s7-inner", S8 - 0.55);
+
+  // ---- Scene 8 (244.344 – 290.295) -----------------------------------------
+  IN("#s8-inner > .board > .main > h1", S8 + 0.15, 22, 0.6);
+  SC("#s8-u", S8 + 0.6);
+  IN("#s8-golden", S8 + 2.7, 14, 0.5);
+  IN("#kc-golden", S8 + 3.1);
+  IN("#ex1", S8 + 12.2, 14, 0.5);
+  tl.fromTo("#ex1-chip", { opacity: 0, scale: 1.5 }, { opacity: 1, scale: 1, duration: 0.4, ease: "power3.in" }, S8 + 17.6);
+  IN("#ex2", S8 + 19.2, 14, 0.5);
+  tl.fromTo("#ex2-chip", { opacity: 0, scale: 1.5 }, { opacity: 1, scale: 1, duration: 0.4, ease: "power3.in" }, S8 + 35.4);
+  IN("#s8-note", S8 + 27.7, 12, 0.5);
+  IN("#kc-gate", S8 + 28.1);
+  IN("#kc-exitcode", S8 + 37.7);
+  IN("#s8-ship", S8 + 42.3, 14, 0.6);
+  OUT("#s8-inner", S9 - 0.55);
+
+  // ---- Scene 9 (290.295 – 324.833) -----------------------------------------
+  IN("#s9-inner > .board > .main > h1", S9 + 0.15, 22, 0.6);
+  SC("#s9-u", S9 + 0.6);
+  IN("#art1", S9 + 4.2, 14, 0.45);
+  IN("#art2", S9 + 5.0, 14, 0.45);
+  IN("#art3", S9 + 5.8, 14, 0.45);
+  IN("#kc-determinism", S9 + 7.7);
+  IN("#kc-mocktransport", S9 + 14.2);
+  IN("#s9-ci", S9 + 20.2, 14, 0.5);
+  ["#ci1", "#ci2", "#ci3", "#ci4", "#ci5", "#ci6", "#ci7"].forEach((sel, i) =>
+    IN(sel, S9 + 21.0 + i * 0.45, 10, 0.35)
+  );
+  countTo("#s9-tests", 11, S9 + 23.0, 0.9, (v) => String(Math.round(v)));
+  IN("#s9-ms", S9 + 27.5, 14, 0.6);
+  OUT("#s9-inner", S10 - 0.55);
+
+  // ---- Scene 10 (324.833 – end) --------------------------------------------
+  IN("#s10-inner > .board > .main > h1", S10 + 0.15, 22, 0.6);
+  SC("#s10-u", S10 + 0.6);
+  IN("#r10a", S10 + 3.5, 12, 0.45);
+  IN("#r10b", S10 + 5.5, 12, 0.45);
+  IN("#r10c", S10 + 11.0, 12, 0.45);
+  IN("#r10d", S10 + 14.0, 12, 0.45);
+  IN("#r10e", S10 + 19.2, 12, 0.45);
+  IN("#r10f", S10 + 25.7, 12, 0.45);
+  IN("#s10-end", S10 + 29.2, 16, 0.8);
+  IN("#kc-learn", S10 + 33.3);
+
+  window.__timelines["platform-lecture"] = tl;
+</script>
+</body>
+</html>
