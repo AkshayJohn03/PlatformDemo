@@ -1,5 +1,8 @@
 # PlatformDemo
 
+[![▶ whiteboard explainer video · 6m07s](https://img.shields.io/badge/%E2%96%B6_whiteboard_explainer-6m07s-E8B44A?style=flat-square&logo=googleplay&logoColor=white)](brag-output/brag.mp4)
+
+
 The vertical integration proof for the AI portfolio: [AegisGate](https://github.com/AkshayJohn03/AegisGate), [HVAC-Copilot](https://github.com/AkshayJohn03/HVAC-Copilot), [ForensiQ](https://github.com/AkshayJohn03/ForensiQ) and [VerdictAI](https://github.com/AkshayJohn03/VerdictAI) — four standalone systems, one end-to-end run, fully offline.
 
 ---
