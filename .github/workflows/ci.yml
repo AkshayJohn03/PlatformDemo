@@ -13,28 +13,28 @@ jobs:
       # out side by side and installs them editable, so the integration always
       # runs against the live source of every portfolio system.
       - name: Checkout PlatformDemo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Checkout AegisGate
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: AkshayJohn03/AegisGate
           path: AegisGate
 
       - name: Checkout HVAC-Copilot
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: AkshayJohn03/HVAC-Copilot
           path: HVAC-Copilot
 
       - name: Checkout ForensiQ
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: AkshayJohn03/ForensiQ
           path: ForensiQ
 
       - name: Checkout VerdictAI
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: AkshayJohn03/VerdictAI
           path: VerdictAI
